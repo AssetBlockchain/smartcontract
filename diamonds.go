@@ -30,7 +30,7 @@ const   CUSTOMER        =  8
 
 //==============================================================================================================================
 //	 Status types - Asset lifecycle is broken down into 5 statuses, this is part of the business logic to determine what can 
-//					be done to the vehicle at points in it's lifecycle
+//					be done to the assets at points in it's lifecycle
 //==============================================================================================================================
 const   STATE_MINING  	        =  0
 const   STATE_DISTRIBUTING	    =  1
@@ -56,28 +56,29 @@ type  SimpleChaincode struct {
 //			  that element when reading a JSON object into the struct e.g. JSON make -> Struct Make.
 //==============================================================================================================================
 type Diamond struct {
-	Unique Id       int      `json:"Id"`
-	Colour          string   `json:"colour"`
-	Carat           int      `json:"carat"`
-	Cut             string   `json:"cut"`					
-	Clarity         string   `json:"clarity"`
-	Location        string   `json:"location"`
-	Date            int      `json:"date"`
-	Stamp           time.Time`json:"stamp"`
-	Polish          string   `json:"polish"`
-	Symmetry        string   `json:"symmetry"`
+	assetsID       int      'json:"assetsID"'
+	Colour          string   'json:"colour"'
+	Diamondat           int      'json:"Diamondat"'
+	Cut             string   'json:"cut"'					
+	Clarity         string   'json:"clarity"'
+	Location        string   'json:"location"'
+	Date            int      'json:"date"'
+	Stamp           time.Time'json:"stamp"'
+	Polish          string   'json:"polish"'
+	Symmetry        string   'json:"symmetry"'
         Jewellery Type  string   'json:"jewellery type"'
+		Owner           string 'json:"owner"'
         Status          int      'json:"status"'
 }
 
 
 //==============================================================================================================================
-//	Cutter                - Defines the structure that holds all the Unique Id's for diamonds that have been created.
+//	Asset_Holder                - Defines the structure that holds all the assets's for diamonds that have been created.
 //				Used as an index when querying all diamonds.
 //==============================================================================================================================
 
-type Cutter struct {
-	Unique id []int `json:"Unique Id"`
+type Asset_Holder struct {
+	assetsID []String 'json:"assetsID"'
 }
 
 //==============================================================================================================================
@@ -85,8 +86,8 @@ type Cutter struct {
 //==============================================================================================================================
 
 type User_and_eCert struct {
-	Identity string `json:"identity"`
-	eCert string `json:"ecert"`
+	Identity string 'json:"identity"'
+	eCert string 'json:"ecert"'
 }		
 
 //==============================================================================================================================
@@ -99,12 +100,12 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 	//			peer_address
 	
 	
-	var Unique IDs Cutter
+	var assetHolder Asset_Holder
 	
-	bytes, err := json.Marshal(Unique IDs)
-												if err != nil { return nil, errors.New("Error creating Cutter record") }
+	bytes, err := json.Marshal(assetHolder)
+												if err != nil { return nil, errors.New("Error creating assetHolder record") }
 																
-	err = stub.PutState("Unique IDs", bytes)
+	err = stub.PutState("assetHolder", bytes)
 	
 	for i:=0; i < len(args); i=i+2 {
 		
@@ -145,20 +146,16 @@ func (t *SimpleChaincode) add_ecert(stub *shim.ChaincodeStub, name string, ecert
 	return nil, nil
 
 }
-
 //==============================================================================================================================
-//	 get_caller      - Retrieves the username of the user who invoked the chaincode.
+//	 get_caller - Retrieves the username of the user who invoked the chaincode.
 //				  Returns the username as a string.
 //==============================================================================================================================
 
-func (t *SimpleChaincode) get_username(stub *shim.ChaincodeStub) (string, error) {
+func (t *SimpleChaincode) get_username(stub shim.ChaincodeStubInterface) (string, error) {
 
-	bytes, err := stub.GetCallerCertificate();
-															if err != nil { return "", errors.New("Couldn't retrieve caller certificate") }
-	x509Cert, err := x509.ParseCertificate(bytes);				// Extract Certificate from result of GetCallerCertificate						
-															if err != nil { return "", errors.New("Couldn't parse certificate")	}
-															
-	return x509Cert.Subject.CommonName, nil
+    username, err := stub.ReadCertAttribute("username");
+	if err != nil { return "", errors.New("Couldn't get attribute 'username'. Error: " + err.Error()) }
+	return string(username), nil
 }
 
 //==============================================================================================================================
@@ -166,27 +163,11 @@ func (t *SimpleChaincode) get_username(stub *shim.ChaincodeStub) (string, error)
 // 				  		certificates common name. The affiliation is stored as part of the common name.
 //==============================================================================================================================
 
-func (t *SimpleChaincode) check_affiliation(stub *shim.ChaincodeStub, cert string) (int, error) {																																																					
-	
+func (t *SimpleChaincode) check_affiliation(stub shim.ChaincodeStubInterface) (string, error) {
+    affiliation, err := stub.ReadCertAttribute("role");
+	if err != nil { return "", errors.New("Couldn't get attribute 'role'. Error: " + err.Error()) }
+	return string(affiliation), nil
 
-	decodedCert, err := url.QueryUnescape(cert);    				// make % etc normal //
-	
-															if err != nil { return -1, errors.New("Could not decode certificate") }
-	
-	pem, _ := pem.Decode([]byte(decodedCert))           				// Make Plain text   //
-
-	x509Cert, err := x509.ParseCertificate(pem.Bytes);				// Extract Certificate from argument //
-														
-													if err != nil { return -1, errors.New("Couldn't parse certificate")	}
-
-	cn := x509Cert.Subject.CommonName
-	
-	res := strings.Split(cn,"\\")
-	
-	affiliation, _ := strconv.Atoi(res[2])
-	
-	return affiliation, nil
-		
 }
 
 //==============================================================================================================================
@@ -194,53 +175,55 @@ func (t *SimpleChaincode) check_affiliation(stub *shim.ChaincodeStub, cert strin
 //					 name passed.
 //==============================================================================================================================
 
-func (t *SimpleChaincode) get_caller_data(stub *shim.ChaincodeStub) (string, int, error){	
+func (t *SimpleChaincode) get_caller_data(stub shim.ChaincodeStubInterface) (string, string, error){
 
 	user, err := t.get_username(stub)
-																		if err != nil { return "", -1, err }
-																		
-	ecert, err := t.get_ecert(stub, user);					
-																if err != nil { return "", -1, err }
 
-	affiliation, err := t.check_affiliation(stub,string(ecert));			
-																		if err != nil { return "", -1, err }
+    // if err != nil { return "", "", err }
+
+	// ecert, err := t.get_ecert(stub, user);
+
+    // if err != nil { return "", "", err }
+
+	affiliation, err := t.check_affiliation(stub);
+
+    if err != nil { return "", "", err }
 
 	return user, affiliation, nil
 }
-
 //==============================================================================================================================
-//	 retrieve_Unique ID           - Gets the state of the data at Unique ID in the ledger then converts it from the stored 
+//	 retrieve_assets           - Gets the state of the data at assetsID in the ledger then converts it from the stored 
 //					JSON into the Diamond struct for use in the contract. Returns the Diamond struct.
 //					Returns empty d if it errors.
 //==============================================================================================================================
-func (t *SimpleChaincode) retrieve_Unique ID(stub *shim.ChaincodeStub, Unique ID int) (Diamond, error) {
+func (t *SimpleChaincode) retrieve_assets(stub *shim.ChaincodeStub, assetsID String) (Diamond, error) {
 	
 	var d Diamond
 
-	bytes, err := stub.GetState(Unique ID);					
+	bytes, err := stub.GetState(assetsID);					
 				
-															if err != nil {	fmt.Printf("RETRIEVE_V5C: Failed to invoke vehicle_code: %s", err); return v, errors.New("RETRIEVE_V5C: Error retrieving vehicle with v5cID = " + v5cID) }
+															if err != nil {	fmt.Printf("RETRIEVEassets: Failed to invoke assets_id: %s", err); return v, errors.New("RETRIEVEassets: Error retrieving assets with v5cID = " + v5cID) }
 
 	err = json.Unmarshal(bytes, &v);						
 
-															if err != nil {	fmt.Printf("RETRIEVE_V5C: Corrupt vehicle record "+string(bytes)+": %s", err); return v, errors.New("RETRIEVE_V5C: Corrupt vehicle record"+string(bytes))	}
+															if err != nil {	fmt.Printf("RETRIEVEassets: Corrupt assetsID record "+string(bytes)+": %s", err); return v, errors.New("RETRIEVEassets: Corrupt assets record"+string(bytes))	}
 	
 	return v, nil
 }
 
 //==============================================================================================================================
-// save_changes - Writes to the ledger the Vehicle struct passed in a JSON format. Uses the shim file's 
+// save_changes - Writes to the ledger the assets struct passed in a JSON format. Uses the shim file's 
 //				  method 'PutState'.
 //==============================================================================================================================
 func (t *SimpleChaincode) save_changes(stub *shim.ChaincodeStub, d Diamond) (bool, error) {
 	 
 	bytes, err := json.Marshal(v)
 	
-																if err != nil { fmt.Printf("SAVE_CHANGES: Error converting vehicle record: %s", err); return false, errors.New("Error converting vehicle record") }
+																if err != nil { fmt.Printf("SAVE_CHANGES: Error converting assets record: %s", err); return false, errors.New("Error converting assets record") }
 
-	err = stub.PutState(d.Unique IDs, bytes)
+	err = stub.PutState(d.assetsID, bytes)
 	
-																if err != nil { fmt.Printf("SAVE_CHANGES: Error storing vehicle record: %s", err); return false, errors.New("Error storing vehicle record") }
+																if err != nil { fmt.Printf("SAVE_CHANGES: Error storing assets record: %s", err); return false, errors.New("Error storing assets record") }
 	
 	return true, nil
 }
@@ -259,15 +242,15 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 
 	
 	if function == "create_diamond" { return t.create_diamond(stub, caller, caller_affiliation, args[0])
-	} else { 																				// If the function is not a create then there must be a car so we need to retrieve the car.
+	} else { 																				// If the function is not a create then there must be a Diamond so we need to retrieve the Diamond.
 		
 		argPos := 1
 		
-		if function == "scrap_diamond" {																// If its a scrap vehicle then only two arguments are passed (no update value) all others have three arguments and the v5cID is expected in the last argument
+		if function == "scrap_diamond" {																// If its a scrap assets then only two arguments are passed (no update value) all others have three arguments and the v5cID is expected in the last argument
 			argPos = 0
 		}
 		
-		d, err := t.retrieve_Unique ID(stub, args[argPos])
+		d, err := t.retrieve_assets(stub, args[argPos])
 		
 																							if err != nil { fmt.Printf("INVOKE: Error retrieving v5c: %s", err); return nil, errors.New("Error retrieving v5c") }
 																		
@@ -294,7 +277,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 		} else if function == "update_colour"  	    { return t.update_colour(stub, d, caller, caller_affiliation, args[0])
 		} else if function == "update_cut"          { return t.update_model(stub, d, caller, caller_affiliation, args[0])
 		} else if function == "update_clarity"   { return t.update_clarity(stub, d, caller, caller_affiliation, args[0])
-		} else if function == "update_carat" 			{ return t.update_carat(stub, d, caller, caller_affiliation, args[0])
+		} else if function == "update_Diamondat" 			{ return t.update_Diamondat(stub, d, caller, caller_affiliation, args[0])
 		} else if function == "update_symmetry" 		{ return t.update_symmetry(stub, d, caller, caller_affiliation, args[0])
 		} else if function == "update_polish" 		{ return t.polish(stub, d, caller, caller_affiliation) }
 		
@@ -317,7 +300,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 			if len(args) != 1 { fmt.Printf("Incorrect number of arguments passed"); return nil, errors.New("QUERY: Incorrect number of arguments passed") }
 	
 	
-			v, err := t.retrieve_Unique ID(stub, args[0])
+			v, err := t.retrieve_assets(stub, args[0])
 																							if err != nil { fmt.Printf("QUERY: Error retrieving v5c: %s", err); return nil, errors.New("QUERY: Error retrieving v5c "+err.Error()) }
 	
 			return t.get_diamond_details(stub, v, caller, caller_affiliation)
@@ -337,13 +320,13 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 //=================================================================================================================================									
 //	 Create Diamond - Creates the initial JSON for the diamond and then saves it to the ledger.									
 //=================================================================================================================================
-func (t *SimpleChaincode) create_diamond(stub *shim.ChaincodeStub, caller string, caller_affiliation int, UniqueID string) ([]byte, error) {								
+func (t *SimpleChaincode) create_diamond(stub *shim.ChaincodeStub, caller string, caller_affiliation int, assets_ID string) ([]byte, error) {								
 
 	var d Diamond																																										
 	
-	Unique_ID      := "\"uniqueID\":\""+uniqueID+"\", "							// Variables to define the JSON
+	assetsID      := "\"assets_ID\":\""+assets_ID+"\", "							// Variables to define the JSON
 	colour         := "\"colour\":\"UNDEFINED\", "
-	carat          := "\"carat\":\"UNDEFINED\", "
+	Diamondat          := "\"Diamondat\":\"UNDEFINED\", "
 	cut            := "\"cut\":\"UNDEFINED\", "
 	clarity        := "\"clarity\":\"UNDEFINED\", "
 	location       := "\"location\":\""UNDEFINED"\", "
@@ -354,27 +337,27 @@ func (t *SimpleChaincode) create_diamond(stub *shim.ChaincodeStub, caller string
         jewellery_type :="\"jewellery_type\":\"UNDEFINED\", "
         status         :="\"status\":0", "
 	
-	diamond_json := "{"+unique_ID+colour+carat+cut+clarity+location+date+stamp+polish+symmetry+jewellery_type+status"}" 	// Concatenates the variables to create the total JSON object
+	diamond_json := "{"+assetsID+colour+Diamondat+cut+clarity+location+date+stamp+polish+symmetry+jewellery_type+status"}" 	// Concatenates the variables to create the total JSON object
 	
-	matched, err := regexp.Match("^[A-z][A-z][0-9]{7}", []byte(uniqueID))  				// matched = true if the v5cID passed fits format of two letters followed by seven digits
+	matched, err := regexp.Match("^[A-z][A-z][0-9]{7}", []byte(assets_id))  				// matched = true if the v5cID passed fits format of two letters followed by seven digits
 	
-												if err != nil { fmt.Printf("CREATE_DIAMOND: Invalid uniqueID: %s", err); return nil, errors.New("Invalid uniqueID") }
+												if err != nil { fmt.Printf("CREATE_DIAMOND: Invalid assets_id: %s", err); return nil, errors.New("Invalid assets_ID") }
 	
-	if 				unique_ID  == "" 	 || 
+	if 				assetsID  == "" 	 || 
 					matched == false    {
-																		fmt.Printf("CREATE_DIAMOND: Invalid UNIQUEID provided");
-																		return nil, errors.New("Invalid uniqueID provided")
+																		fmt.Printf("CREATE_DIAMOND: Invalid assets_ID provided");
+																		return nil, errors.New("Invalid assets_ID provided")
 	}
 
 	err = json.Unmarshal([]byte(diamond_json), &d)							// Convert the JSON defined above into a diamond object for go
 	
 																		if err != nil { return nil, errors.New("Invalid JSON object") }
 
-	record, err := stub.GetState(d.uniqueID) 								// If not an error then a record exists so cant create a new car with this uniqueID as it must be unique
+	record, err := stub.GetState(d.assetsID) 								// If not an error then a record exists so cant create a new Diamond with this assets_id as it must be unique
 	
 																		if record != nil { return nil, errors.New("Diamond already exists") }
 	
-	if 	caller_affiliation != MINER {							// Only the regulator can create a new unique
+	if 	caller_affiliation != MINER {							// Only the Miner can create a new unique
 
 																		return nil, errors.New("Permission Denied")
 	}
@@ -383,24 +366,24 @@ func (t *SimpleChaincode) create_diamond(stub *shim.ChaincodeStub, caller string
 			
 																		if err != nil { fmt.Printf("CREATE_DIAMOND: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
 	
-	bytes, err := stub.GetState("uniqueIDs")
+	bytes, err := stub.GetState("assetIDs")
 
-																		if err != nil { return nil, errors.New("Unable to get uniqueIDs") }
+																		if err != nil { return nil, errors.New("Unable to get assetIDs") }
 																		
-	var uniqueIDs cutter
+	var assetIDs Asset_Holder
 	
-	err = json.Unmarshal(bytes, &uniqueIDs)
+	err = json.Unmarshal(bytes, &assetIDs)
 	
-																		if err != nil {	return nil, errors.New("Corrupt cutter record") }
+																		if err != nil {	return nil, errors.New("Corrupt Asset_Holder record") }
 															
-	uniqueIDs.uniques = append(uniqueIDs.uniques, uniqueID)
+	assetIDs.assetID = append(assetIDs.assetID, assetID)
 	
 	
-	bytes, err = json.Marshal(uniqueIDs)
+	bytes, err = json.Marshal(assetIDs)
 	
 															if err != nil { fmt.Print("Error creating cutter record") }
 
-	err = stub.PutState("uniqueIDs", bytes)
+	err = stub.PutState("assetIDs", bytes)
 
 															if err != nil { return nil, errors.New("Unable to put the state") }
 	
@@ -416,7 +399,7 @@ func (t *SimpleChaincode) create_diamond(stub *shim.ChaincodeStub, caller string
 func (t *SimpleChaincode) miner_to_shop_keeper(stub *shim.ChaincodeStub, d diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
 	
 if 		        d.Colour 	 == "UNDEFINED" || 					
-			d.Carat          == "UNDEFINED" || 
+			d.Diamondat          == "UNDEFINED" || 
 			d.Stamp 	 == "TIMESTAMP" || 
 			d.Date           == "UNDEFINED" || 
 			d.Location       == "UNDEFINED"	||
@@ -429,7 +412,7 @@ if 		        d.Colour 	 == "UNDEFINED" ||
 			d.Owner					== caller			&&
 			caller_affiliation		== MINER		&&
 			recipient_affiliation	== SHOP_KEEPER		&&
-			v.Scrapped				== false			{		// If the roles and users are ok 
+			d.Scrapped				== false			{		// If the roles and users are ok 
 	
 					d.Owner  = recipient_name		// then make the owner the new owner
 					d.Status = STATE_DISTRIBUTING			// and mark it in the state of manufacture
@@ -531,7 +514,7 @@ func (t *SimpleChaincode) buyer_to_trader(stub *shim.ChaincodeStub, d Diamond, c
 //=================================================================================================================================
 func (t *SimpleChaincode) trader_to_cutter(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
 	
-if 		        d.Unique ID 	 == "UNDEFINED" || 					
+if 		        d.assets 	 == "UNDEFINED" || 					
 			
  }
 
@@ -563,7 +546,7 @@ func (t *SimpleChaincode) cutter_to_jewellery_maker(stub *shim.ChaincodeStub, d 
 if 		        d.Cut 	    == "UNDEFINED" || 					
 			d.Symmetry  == "UNDEFINED" || 
                         d.Polish    == "UNDEFINED" || 
-                        d.Unique Id == "UNDEFINED" || 
+                        d.assets == "UNDEFINED" || 
  }
 
 
@@ -685,7 +668,7 @@ func (t *SimpleChaincode) update_cut(stub *shim.ChaincodeStub, d Diamond, caller
 //=================================================================================================================================
 //	 update_clarity
 //=================================================================================================================================
-func (t *SimpleChaincode) update_colour(stub *shim.ChaincodeStub, v Vehicle, caller string, caller_affiliation int, new_value string) ([]byte, error) {
+func (t *SimpleChaincode) update_colour(stub *shim.ChaincodeStub, v assets, caller string, caller_affiliation int, new_value string) ([]byte, error) {
 	
 	if 		v.Owner				== caller				&&
 			caller_affiliation	== CUTTER			&&/*((v.Owner				== caller			&&
@@ -706,9 +689,9 @@ func (t *SimpleChaincode) update_colour(stub *shim.ChaincodeStub, v Vehicle, cal
 }
 
 //=================================================================================================================================
-//	 update_CARAT
+//	 update_DiamondAT
 //=================================================================================================================================
-func (t *SimpleChaincode) update_CARAT(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int, new_value string) ([]byte, error) {
+func (t *SimpleChaincode) update_DiamondAT(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int, new_value string) ([]byte, error) {
 	
 	if 		d.Status			== STATE_MINING	&&
 			d.Owner				== caller				&& 
@@ -723,7 +706,7 @@ func (t *SimpleChaincode) update_CARAT(stub *shim.ChaincodeStub, d Diamond, call
 	
 	_, err := t.save_changes(stub, d)
 	
-															if err != nil { fmt.Printf("UPDATE_CARAT: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
+															if err != nil { fmt.Printf("UPDATE_DiamondAT: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
 	
 	return nil, nil
 	
@@ -732,7 +715,7 @@ func (t *SimpleChaincode) update_CARAT(stub *shim.ChaincodeStub, d Diamond, call
 //=================================================================================================================================
 //	 update_SYMMETRY
 //=================================================================================================================================
-func (t *SimpleChaincode) update_symmetry(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int, new_value string) ([]byte, error) {
+func (t *SimpleChaincode) update_symmetry(stub *shim.ChaincodeStub, v assets, caller string, caller_affiliation int, new_value string) ([]byte, error) {
 	
 	if 		d.Status			== STATE_CUTTING	&&
 			d.Owner				== caller				&& 
@@ -768,7 +751,7 @@ func (t *SimpleChaincode) update_POLISH(stub *shim.ChaincodeStub, d Diamond, cal
 	
 	_, err := t.save_changes(stub, d)
 	
-															if err != nil { fmt.Printf("SCRAP_VEHICLE: Error saving changes: %s", err); return nil, errors.New("SCRAP_VEHICLError saving changes") }
+															if err != nil { fmt.Printf("SCRAP_assets: Error saving changes: %s", err); return nil, errors.New("SCRAP_assetsrror saving changes") }
 	
 	return nil, nil
 	
@@ -801,22 +784,22 @@ func (t *SimpleChaincode) get_diamond_details(stub *shim.ChaincodeStub, d Diamon
 
 func (t *SimpleChaincode) get_diamonds(stub *shim.ChaincodeStub, caller string, caller_affiliation int) ([]byte, error) {
 
-	bytes, err := stub.GetState("uniqueIDs")
+	bytes, err := stub.GetState("assetIDs")
 		
-																			if err != nil { return nil, errors.New("Unable to get uniqueIDs") }
+																			if err != nil { return nil, errors.New("Unable to get assetIDs") }
 																	
-	var uniqueIDs cutter
+	var assetIDs Asset_Holder
 	
-	err = json.Unmarshal(bytes, &uniqueIDs)						
+	err = json.Unmarshal(bytes, &assetIDs)						
 	
-																			if err != nil {	return nil, errors.New("Corrupt Cutter") }
+																			if err != nil {	return nil, errors.New("Corrupt Asset_Holder") }
 	
 	result := "["
 	
 	var temp []byte
 	var d Diamond
 	
-	for _, unique := range uniqueIDs.uniques {
+	for _, unique := range assetIDs.assetID {
 		
 		v, err = t.retrieve_unique(stub, unique)
 		
