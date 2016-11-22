@@ -15,7 +15,7 @@ import (
 
 //==============================================================================================================================
 //	 Participant types - Each participant type is mapped to an integer which we use to compare to the value stored in a
-//						 user's eCert
+//						 user`s eCert
 //==============================================================================================================================
 //CURRENT WORKAROUND USES ROLES CHANGE WHEN OWN USERS CAN BE CREATED SO THAT IT READ 1, 2, 3, 4, 5
 const   MINER           =  1
@@ -24,13 +24,13 @@ const   DEALER          =  3
 const   BUYER           =  4
 const   TRADER          =  5
 const   CUTTER          =  6
-const   JEWELLERY MAKER	=  7
+const   JEWELLERYMAKER	=  7
 const   CUSTOMER        =  8
 
 
 //==============================================================================================================================
 //	 Status types - Asset lifecycle is broken down into 5 statuses, this is part of the business logic to determine what can 
-//					be done to the assets at points in it's lifecycle
+//					be done to the assets at points in it`s lifecycle
 //==============================================================================================================================
 const   STATE_MINING  	        =  0
 const   STATE_DISTRIBUTING	    =  1
@@ -55,30 +55,31 @@ type  SimpleChaincode struct {
 //      DIAMOND         - Defines the attributes of a diamond. JSON on right tells it what JSON fields to map to
 //			  that element when reading a JSON object into the struct e.g. JSON make -> Struct Make.
 //==============================================================================================================================
+
 type Diamond struct {
-	assetsID       int      'json:"assetsID"'
-	Colour          string   'json:"colour"'
-	Diamondat           int      'json:"Diamondat"'
-	Cut             string   'json:"cut"'					
-	Clarity         string   'json:"clarity"'
-	Location        string   'json:"location"'
-	Date            int      'json:"date"'
-	Stamp           time.Time'json:"stamp"'
-	Polish          string   'json:"polish"'
-	Symmetry        string   'json:"symmetry"'
-        Jewellery Type  string   'json:"jewellery type"'
-		Owner           string 'json:"owner"'
-        Status          int      'json:"status"'
+	assetsID       string      `json:"assetsID"`
+	Colour          int   `json:"colour"`
+	Diamondat           int      `json:"Diamondat"`
+	Cut             string   `json:"cut"`					
+	Clarity         string   `json:"clarity"`
+	Location        string   `json:"location"`
+	Date            int      `json:"date"`
+	Stamp           string	`json:"stamp"`
+	Polish          string   `json:"polish"`
+	Symmetry        string   `json:"symmetry"`
+    JewelleryType  string   `json:"jewelleryType"`
+	Owner           string 		`json:"owner"`
+    Status          int      `json:"status"`
 }
 
 
 //==============================================================================================================================
-//	Asset_Holder                - Defines the structure that holds all the assets's for diamonds that have been created.
+//	Asset_Holder                - Defines the structure that holds all the assets`s for diamonds that have been created.
 //				Used as an index when querying all diamonds.
 //==============================================================================================================================
 
 type Asset_Holder struct {
-	assetsID []String 'json:"assetsID"'
+	assetsID []string `json:"assetsID"`
 }
 
 //==============================================================================================================================
@@ -86,14 +87,14 @@ type Asset_Holder struct {
 //==============================================================================================================================
 
 type User_and_eCert struct {
-	Identity string 'json:"identity"'
-	eCert string 'json:"ecert"'
+	Identity string `json:"identity"`
+	eCert string `json:"ecert"`
 }		
 
 //==============================================================================================================================
 //	Init Function - Called when the user deploys the chaincode																	
 //==============================================================================================================================
-func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Init(stub  shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	
 	//Args
 	//				0
@@ -121,11 +122,11 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 //	 get_ecert - Takes the name passed and calls out to the REST API for HyperLedger to retrieve the ecert
 //				 for that user. Returns the ecert as retrived including html encoding.
 //==============================================================================================================================
-func (t *SimpleChaincode) get_ecert(stub *shim.ChaincodeStub, name string) ([]byte, error) {
+func (t *SimpleChaincode) get_ecert(stub  shim.ChaincodeStubInterface, name string) ([]byte, error) {
 	
 	ecert, err := stub.GetState(name)
 
-	if err != nil { return nil, errors.New("Couldn't retrieve ecert for user " + name) }
+	if err != nil { return nil, errors.New("Couldn`t retrieve ecert for user " + name) }
 	
 	return ecert, nil
 }
@@ -134,7 +135,7 @@ func (t *SimpleChaincode) get_ecert(stub *shim.ChaincodeStub, name string) ([]by
 //	 add_ecert - Adds a new ecert and user pair to the table of ecerts
 //==============================================================================================================================
 
-func (t *SimpleChaincode) add_ecert(stub *shim.ChaincodeStub, name string, ecert string) ([]byte, error) {
+func (t *SimpleChaincode) add_ecert(stub  shim.ChaincodeStubInterface, name string, ecert string) ([]byte, error) {
 	
 	
 	err := stub.PutState(name, []byte(ecert))
@@ -154,7 +155,7 @@ func (t *SimpleChaincode) add_ecert(stub *shim.ChaincodeStub, name string, ecert
 func (t *SimpleChaincode) get_username(stub shim.ChaincodeStubInterface) (string, error) {
 
     username, err := stub.ReadCertAttribute("username");
-	if err != nil { return "", errors.New("Couldn't get attribute 'username'. Error: " + err.Error()) }
+	if err != nil { return "", errors.New("Couldn`t get attribute `username`. Error: " + err.Error()) }
 	return string(username), nil
 }
 
@@ -163,31 +164,43 @@ func (t *SimpleChaincode) get_username(stub shim.ChaincodeStubInterface) (string
 // 				  		certificates common name. The affiliation is stored as part of the common name.
 //==============================================================================================================================
 
-func (t *SimpleChaincode) check_affiliation(stub shim.ChaincodeStubInterface) (string, error) {
-    affiliation, err := stub.ReadCertAttribute("role");
-	if err != nil { return "", errors.New("Couldn't get attribute 'role'. Error: " + err.Error()) }
-	return string(affiliation), nil
+func (t *SimpleChaincode) check_affiliation(stub  shim.ChaincodeStubInterface, cert string) (int, error) {																																																					
+	
 
+	decodedCert, err := url.QueryUnescape(cert);    				// make % etc normal //
+	
+															if err != nil { return -1, errors.New("Could not decode certificate") }
+	
+	pem, _ := pem.Decode([]byte(decodedCert))           				// Make Plain text   //
+
+	x509Cert, err := x509.ParseCertificate(pem.Bytes);				// Extract Certificate from argument //
+														
+													if err != nil { return -1, errors.New("Couldn't parse certificate")	}
+
+	cn := x509Cert.Subject.CommonName
+	
+	res := strings.Split(cn,"\\")
+	
+	affiliation, _ := strconv.Atoi(res[2])
+	
+	return affiliation, nil
+		
 }
 
 //==============================================================================================================================
 //	 get_caller_data - Calls the get_ecert and check_role functions and returns the ecert and role for the
 //					 name passed.
 //==============================================================================================================================
-
-func (t *SimpleChaincode) get_caller_data(stub shim.ChaincodeStubInterface) (string, string, error){
+func (t *SimpleChaincode) get_caller_data(stub  shim.ChaincodeStubInterface) (string, int, error){	
 
 	user, err := t.get_username(stub)
+																		if err != nil { return "", -1, err }
+																		
+	ecert, err := t.get_ecert(stub, user);					
+																if err != nil { return "", -1, err }
 
-    // if err != nil { return "", "", err }
-
-	// ecert, err := t.get_ecert(stub, user);
-
-    // if err != nil { return "", "", err }
-
-	affiliation, err := t.check_affiliation(stub);
-
-    if err != nil { return "", "", err }
+	affiliation, err := t.check_affiliation(stub,string(ecert));			
+																		if err != nil { return "", -1, err }
 
 	return user, affiliation, nil
 }
@@ -196,28 +209,28 @@ func (t *SimpleChaincode) get_caller_data(stub shim.ChaincodeStubInterface) (str
 //					JSON into the Diamond struct for use in the contract. Returns the Diamond struct.
 //					Returns empty d if it errors.
 //==============================================================================================================================
-func (t *SimpleChaincode) retrieve_assets(stub *shim.ChaincodeStub, assetsID String) (Diamond, error) {
+func (t *SimpleChaincode) retrieve_assets(stub  shim.ChaincodeStubInterface, assetsID string) (Diamond, error) {
 	
 	var d Diamond
 
 	bytes, err := stub.GetState(assetsID);					
 				
-															if err != nil {	fmt.Printf("RETRIEVEassets: Failed to invoke assets_id: %s", err); return v, errors.New("RETRIEVEassets: Error retrieving assets with v5cID = " + v5cID) }
+															if err != nil {	fmt.Printf("RETRIEVEassets: Failed to invoke assets_id: %s", err); return d, errors.New("RETRIEVEassets: Error retrieving assets with assetsID = " + assetsID) }
 
-	err = json.Unmarshal(bytes, &v);						
+	err = json.Unmarshal(bytes, &d);						
 
-															if err != nil {	fmt.Printf("RETRIEVEassets: Corrupt assetsID record "+string(bytes)+": %s", err); return v, errors.New("RETRIEVEassets: Corrupt assets record"+string(bytes))	}
+															if err != nil {	fmt.Printf("RETRIEVEassets: Corrupt assetsID record "+string(bytes)+": %s", err); return d, errors.New("RETRIEVEassets: Corrupt assets record"+string(bytes))	}
 	
-	return v, nil
+	return d, nil
 }
 
 //==============================================================================================================================
-// save_changes - Writes to the ledger the assets struct passed in a JSON format. Uses the shim file's 
-//				  method 'PutState'.
+// save_changes - Writes to the ledger the assets struct passed in a JSON format. Uses the shim file`s 
+//				  method `PutState`.
 //==============================================================================================================================
-func (t *SimpleChaincode) save_changes(stub *shim.ChaincodeStub, d Diamond) (bool, error) {
+func (t *SimpleChaincode) save_changes(stub  shim.ChaincodeStubInterface, d Diamond) (bool, error) {
 	 
-	bytes, err := json.Marshal(v)
+	bytes, err := json.Marshal(d)
 	
 																if err != nil { fmt.Printf("SAVE_CHANGES: Error converting assets record: %s", err); return false, errors.New("Error converting assets record") }
 
@@ -234,7 +247,7 @@ func (t *SimpleChaincode) save_changes(stub *shim.ChaincodeStub, d Diamond) (boo
 //	Invoke - Called on chaincode invoke. Takes a function name passed and calls that function. Converts some
 //		  initial arguments passed to other things for use in the called function e.g. name -> ecert
 //==============================================================================================================================
-func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Invoke(stub  shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	
 	caller, caller_affiliation, err := t.get_caller_data(stub)
 
@@ -246,7 +259,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 		
 		argPos := 1
 		
-		if function == "scrap_diamond" {																// If its a scrap assets then only two arguments are passed (no update value) all others have three arguments and the v5cID is expected in the last argument
+		if function == "scrap_diamond" {																// If its a scrap assets then only two arguments are passed (no update value) all others have three arguments and the assetsID is expected in the last argument
 			argPos = 0
 		}
 		
@@ -271,17 +284,16 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 				} else if  function == "buyer_to_trader"  { return t.buyer_to_trader(stub, d, caller, caller_affiliation, args[0], rec_affiliation)
 				} else if  function == "trader_to_cutter"  { return t.trader_to_cutter(stub, d, caller, caller_affiliation, args[0], rec_affiliation)
 				} else if  function == "cutter_to_jewellery_maker" { return t.cutter_to_jewellery_maker(stub, d, caller, caller_affiliation, args[0], rec_affiliation)
-				} else if  function == "cutter_to_customer" { return t.cutter_to_customer(stub, d, caller, caller_affiliation, args[0], rec_affiliation)
+				} else if  function == "jewellery_maker_to_customer" { return t.jewellery_maker_to_customer(stub, d, caller, caller_affiliation, args[0], rec_affiliation)
                                 }
 			
 		} else if function == "update_colour"  	    { return t.update_colour(stub, d, caller, caller_affiliation, args[0])
-		} else if function == "update_cut"          { return t.update_model(stub, d, caller, caller_affiliation, args[0])
+		} else if function == "update_cut"          { return t.update_cut(stub, d, caller, caller_affiliation, args[0])
 		} else if function == "update_clarity"   { return t.update_clarity(stub, d, caller, caller_affiliation, args[0])
-		} else if function == "update_Diamondat" 			{ return t.update_Diamondat(stub, d, caller, caller_affiliation, args[0])
 		} else if function == "update_symmetry" 		{ return t.update_symmetry(stub, d, caller, caller_affiliation, args[0])
-		} else if function == "update_polish" 		{ return t.polish(stub, d, caller, caller_affiliation) }
+		} 
 		
-																						return nil, errors.New("Function of that name doesn't exist.")
+																						return nil, errors.New("Function of that name doesn`t exist.")
 			
 	}
 }
@@ -289,7 +301,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 //	Query - Called on chaincode query. Takes a function name passed and calls that function. Passes the
 //  		initial arguments passed are passed on to the called function.
 //=================================================================================================================================	
-func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Query(stub  shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 													
 	caller, caller_affiliation, err := t.get_caller_data(stub)
 
@@ -320,7 +332,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 //=================================================================================================================================									
 //	 Create Diamond - Creates the initial JSON for the diamond and then saves it to the ledger.									
 //=================================================================================================================================
-func (t *SimpleChaincode) create_diamond(stub *shim.ChaincodeStub, caller string, caller_affiliation int, assets_ID string) ([]byte, error) {								
+func (t *SimpleChaincode) create_diamond(stub  shim.ChaincodeStubInterface, caller string, caller_affiliation int, assets_ID string) ([]byte, error) {								
 
 	var d Diamond																																										
 	
@@ -329,19 +341,19 @@ func (t *SimpleChaincode) create_diamond(stub *shim.ChaincodeStub, caller string
 	Diamondat          := "\"Diamondat\":\"UNDEFINED\", "
 	cut            := "\"cut\":\"UNDEFINED\", "
 	clarity        := "\"clarity\":\"UNDEFINED\", "
-	location       := "\"location\":\""UNDEFINED"\", "
+	location       := "\"location\":\"UNDEFINED\", "
 	date           := "\"date\":\"UNDEFINED\", "
 	stamp          := "\"stamp\":\"UNDEFINED\", "
 	polish         := "\"polish\":\"UNDEFINED\", "
-	symmetry       := "\"Symmetry\":"UNDEFINED\", ""
-        jewellery_type :="\"jewellery_type\":\"UNDEFINED\", "
-        status         :="\"status\":0", "
+	symmetry       := "\"Symmetry\":\"UNDEFINED\", "
+    jewelleryType :="\"jewelleryType\":\"UNDEFINED\", " 
+	status         :="\"status\":0"
 	
-	diamond_json := "{"+assetsID+colour+Diamondat+cut+clarity+location+date+stamp+polish+symmetry+jewellery_type+status"}" 	// Concatenates the variables to create the total JSON object
+	diamond_json := "{"+assetsID+colour+Diamondat+cut+clarity+location+date+stamp+polish+symmetry+jewelleryType+status+"}" 	// Concatenates the variables to create the total JSON object
 	
-	matched, err := regexp.Match("^[A-z][A-z][0-9]{7}", []byte(assets_id))  				// matched = true if the v5cID passed fits format of two letters followed by seven digits
+	matched, err := regexp.Match("^[A-z][A-z][0-9]{7}", []byte(assets_ID))  				// matched = true if the assetsID passed fits format of two letters followed by seven digits
 	
-												if err != nil { fmt.Printf("CREATE_DIAMOND: Invalid assets_id: %s", err); return nil, errors.New("Invalid assets_ID") }
+												if err != nil { fmt.Printf("CREATE_DIAMOND: Invalid assets_ID: %s", err); return nil, errors.New("Invalid assets_ID") }
 	
 	if 				assetsID  == "" 	 || 
 					matched == false    {
@@ -376,7 +388,7 @@ func (t *SimpleChaincode) create_diamond(stub *shim.ChaincodeStub, caller string
 	
 																		if err != nil {	return nil, errors.New("Corrupt Asset_Holder record") }
 															
-	assetIDs.assetID = append(assetIDs.assetID, assetID)
+	assetIDs.assetsID = append(assetIDs.assetsID, assetsID)
 	
 	
 	bytes, err = json.Marshal(assetIDs)
@@ -396,23 +408,14 @@ func (t *SimpleChaincode) create_diamond(stub *shim.ChaincodeStub, caller string
 //=================================================================================================================================
 //	 miner_to_shop_keeper
 //=================================================================================================================================
-func (t *SimpleChaincode) miner_to_shop_keeper(stub *shim.ChaincodeStub, d diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
+func (t *SimpleChaincode) miner_to_shop_keeper(stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
 	
-if 		        d.Colour 	 == "UNDEFINED" || 					
-			d.Diamondat          == "UNDEFINED" || 
-			d.Stamp 	 == "TIMESTAMP" || 
-			d.Date           == "UNDEFINED" || 
-			d.Location       == "UNDEFINED"	||
- }
-					
-
-
-
-	if     	d.Status				== STATE_MINING	&&
+if 		        d.Stamp 	 == "TIMESTAMP" || 
+			d.Location       == "UNDEFINED"	&&
+	     	d.Status				== STATE_MINING	&&
 			d.Owner					== caller			&&
 			caller_affiliation		== MINER		&&
-			recipient_affiliation	== SHOP_KEEPER		&&
-			d.Scrapped				== false			{		// If the roles and users are ok 
+			recipient_affiliation	== SHOPKEEPER		{		// If the roles and users are ok 
 	
 					d.Owner  = recipient_name		// then make the owner the new owner
 					d.Status = STATE_DISTRIBUTING			// and mark it in the state of manufacture
@@ -435,17 +438,17 @@ if 		        d.Colour 	 == "UNDEFINED" ||
 //=================================================================================================================================
 //	 shop_keeper_to_dealer
 //=================================================================================================================================
-func (t *SimpleChaincode) shop_keeper_to_dealer(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
+func (t *SimpleChaincode) shop_keeper_to_dealer(stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
 	
 	
 	
 	if 		d.Status				== STATE_DISTRIBUTING	&& 
 			d.Owner					== caller				&& 
-			caller_affiliation		== SHOP_KEEPER			&&
-			recipient_affiliation	== DEALER		&& 
+			caller_affiliation		== SHOPKEEPER			&&
+			recipient_affiliation	== DEALER		{ 
 			
 					d.Owner = recipient_name
-					d.Status = STATE_DEALING
+					d.Status = STATE_DISTRIBUTING
 					
 	} else {
 															return nil, errors.New("Permission denied")
@@ -462,12 +465,12 @@ func (t *SimpleChaincode) shop_keeper_to_dealer(stub *shim.ChaincodeStub, d Diam
 //=================================================================================================================================
 //	 dealer_to_buyer
 //=================================================================================================================================
-func (t *SimpleChaincode) dealer_to_buyer(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
+func (t *SimpleChaincode) dealer_to_buyer(stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
 	
 	if 		d.Status				== STATE_BUYING	&&
 			d.Owner					== caller					&&
 			caller_affiliation		== DEALER			&& 
-			recipient_affiliation	== BUYER			&&
+			recipient_affiliation	== BUYER			{
 			
 					d.Owner = recipient_name
 					
@@ -488,13 +491,13 @@ func (t *SimpleChaincode) dealer_to_buyer(stub *shim.ChaincodeStub, d Diamond, c
 //=================================================================================================================================
 //	 buyer_to_trader
 //=================================================================================================================================
-func (t *SimpleChaincode) buyer_to_trader(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
+func (t *SimpleChaincode) buyer_to_trader(stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
 	
 	if 		d.Status				== STATE_TRADING	&& 
 			d.Owner					== caller					&& 
 			caller_affiliation		== BUYER			&& 
-			recipient_affiliation	== TRADER			&& 
-								{
+			recipient_affiliation	== TRADER		{	
+								
 		
 					d.Owner = recipient_name
 					
@@ -512,18 +515,14 @@ func (t *SimpleChaincode) buyer_to_trader(stub *shim.ChaincodeStub, d Diamond, c
 //=================================================================================================================================
 //	 trader_to_cutter
 //=================================================================================================================================
-func (t *SimpleChaincode) trader_to_cutter(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
+func (t *SimpleChaincode) trader_to_cutter(stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
 	
-if 		        d.assets 	 == "UNDEFINED" || 					
+if 		        d.assetsID 	 == "UNDEFINED" || 					
 			
- }
-
-
-	if		d.Status				== STATE_CUTTING	&&
+			d.Status				== STATE_CUTTING	&&
 			d.Owner  				== caller					&& 
 			caller_affiliation		== TRADER			&& 
-			recipient_affiliation	== CUTTER			&& 
-			v.Scrapped				== false					{
+			recipient_affiliation	== CUTTER					{
 		
 				d.Owner = recipient_name
 	
@@ -541,24 +540,16 @@ if 		        d.assets 	 == "UNDEFINED" ||
 //=================================================================================================================================
 //	 cutter_to_jewellery_maker
 //=================================================================================================================================
-func (t *SimpleChaincode) cutter_to_jewellery_maker(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
+func (t *SimpleChaincode) cutter_to_jewellery_maker(stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
 	
 if 		        d.Cut 	    == "UNDEFINED" || 					
 			d.Symmetry  == "UNDEFINED" || 
                         d.Polish    == "UNDEFINED" || 
-                        d.assets == "UNDEFINED" || 
- }
-
-
-
-
-
-
-	if		d.Status				== STATE_JEWEL_MAKING	&&
+                        d.assetsID == "UNDEFINED" || 
+ d.Status				== STATE_JEWEL_MAKING	&&
 			d.Owner					== caller					&& 
 			caller_affiliation		== CUTTER			&& 
-			recipient_affiliation	== JEWELLERY_MAKER			&&
-							{
+			recipient_affiliation	== JEWELLERYMAKER		{
 			
 					d.Owner = recipient_name
 					
@@ -575,24 +566,17 @@ if 		        d.Cut 	    == "UNDEFINED" ||
 	return nil, nil
 	
 }
-/=================================================================================================================================
+//=================================================================================================================================
 //	 jewellery_maker_to_customer
 //=================================================================================================================================
-func (t *SimpleChaincode) jewellery_maker_to_customer (stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
+func (t *SimpleChaincode) jewellery_maker_to_customer (stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int, recipient_name string, recipient_affiliation int) ([]byte, error) {
 	
-if 		        d.Jewellery Type	    == "UNDEFINED" || 					
+if 		        d.JewelleryType	    == "UNDEFINED" || 					
 			
- }
-
-
-
-
-
-	if		d.Status				== STATE_PURCHASING	&&
+				d.Status				== STATE_PURCHASING	&&
 			d.Owner					== caller					&& 
-			caller_affiliation		== JEWELLERY_MAKER			&& 
-			recipient_affiliation	== CUSTOMER			&&
-							{
+			caller_affiliation		== JEWELLERYMAKER			&& 
+			recipient_affiliation	== CUSTOMER			{
 			
 					d.Owner = recipient_name
 					
@@ -615,7 +599,7 @@ if 		        d.Jewellery Type	    == "UNDEFINED" ||
 //=================================================================================================================================
 //	 update_colour
 //=================================================================================================================================
-func (t *SimpleChaincode) update_colour(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int, new_value string) ([]byte, error) {
+func (t *SimpleChaincode) update_colour(stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int, new_value string) ([]byte, error) {
 	
 	new_colour, err := strconv.Atoi(string(new_value)) 		                // will return an error if the new vin contains non numerical chars
 	
@@ -623,10 +607,9 @@ func (t *SimpleChaincode) update_colour(stub *shim.ChaincodeStub, d Diamond, cal
 	
 	if 		d.Status			== STATE_MINING	&& 
 			d.Owner				== caller				&&
-			caller_affiliation	== MINER			&&
-			d.Colour									&&			// Can't change the colour after its initial assignment
+			caller_affiliation	== MINER				{		// Can`t change the colour after its initial assignment
 			
-					d.colour = new_colour					// Update to the new value
+					d.Colour = new_colour					// Update to the new value
 	} else {
 	
 															return nil, errors.New("Permission denied")
@@ -645,11 +628,11 @@ func (t *SimpleChaincode) update_colour(stub *shim.ChaincodeStub, d Diamond, cal
 //=================================================================================================================================
 //	 update_cut
 //=================================================================================================================================
-func (t *SimpleChaincode) update_cut(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int, new_value string) ([]byte, error) {
+func (t *SimpleChaincode) update_cut(stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int, new_value string) ([]byte, error) {
 
 	
 	if		d.Owner				== caller			&& 
-			caller_affiliation	!=    CUTTER	&&
+			caller_affiliation	!=    CUTTER	{
 			
 					d.Cut = new_value
 	
@@ -668,11 +651,10 @@ func (t *SimpleChaincode) update_cut(stub *shim.ChaincodeStub, d Diamond, caller
 //=================================================================================================================================
 //	 update_clarity
 //=================================================================================================================================
-func (t *SimpleChaincode) update_colour(stub *shim.ChaincodeStub, v assets, caller string, caller_affiliation int, new_value string) ([]byte, error) {
+func (t *SimpleChaincode) update_clarity(stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int, new_value string) ([]byte, error) {
 	
-	if 		v.Owner				== caller				&&
-			caller_affiliation	== CUTTER			&&/*((v.Owner				== caller			&&
-			caller_affiliation	== CUTTER		||
+	if 		d.Owner				== caller				&&
+			caller_affiliation	== CUTTER		{
 			
 					d.Clarity = new_value
 	} else {
@@ -691,13 +673,13 @@ func (t *SimpleChaincode) update_colour(stub *shim.ChaincodeStub, v assets, call
 //=================================================================================================================================
 //	 update_DiamondAT
 //=================================================================================================================================
-func (t *SimpleChaincode) update_DiamondAT(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int, new_value string) ([]byte, error) {
+func (t *SimpleChaincode) update_DiamondAT(stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int, new_value int) ([]byte, error) {
 	
 	if 		d.Status			== STATE_MINING	&&
 			d.Owner				== caller				&& 
-			caller_affiliation	== MINER		&&
+			caller_affiliation	== MINER		{
 			
-					v.Make = new_value
+					d.Diamondat = new_value
 	} else {
 	
 															return nil, errors.New("Permission denied")
@@ -715,11 +697,11 @@ func (t *SimpleChaincode) update_DiamondAT(stub *shim.ChaincodeStub, d Diamond, 
 //=================================================================================================================================
 //	 update_SYMMETRY
 //=================================================================================================================================
-func (t *SimpleChaincode) update_symmetry(stub *shim.ChaincodeStub, v assets, caller string, caller_affiliation int, new_value string) ([]byte, error) {
+func (t *SimpleChaincode) update_symmetry(stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int, new_value string) ([]byte, error) {
 	
 	if 		d.Status			== STATE_CUTTING	&&
 			d.Owner				== caller				&& 
-			caller_affiliation	== CUTTER		&&
+			caller_affiliation	== CUTTER		{
 			
 					d.Symmetry = new_value
 					
@@ -738,11 +720,11 @@ func (t *SimpleChaincode) update_symmetry(stub *shim.ChaincodeStub, v assets, ca
 //=================================================================================================================================
 //	 update_POLISH
 //=================================================================================================================================
-func (t *SimpleChaincode) update_POLISH(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int) ([]byte, error) {
+func (t *SimpleChaincode) update_POLISH(stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int) ([]byte, error) {
 
 	if		d.Status			== STATE_CUTTING	&& 
 			d.Owner				== caller				&& 
-			caller_affiliation	== CUTTER		&& 
+			caller_affiliation	== CUTTER		{
 			
 					
 	} else {
@@ -762,7 +744,7 @@ func (t *SimpleChaincode) update_POLISH(stub *shim.ChaincodeStub, d Diamond, cal
 //=================================================================================================================================
 //	 get_diamond_details
 //=================================================================================================================================
-func (t *SimpleChaincode) get_diamond_details(stub *shim.ChaincodeStub, d Diamond, caller string, caller_affiliation int) ([]byte, error) {
+func (t *SimpleChaincode) get_diamond_details(stub  shim.ChaincodeStubInterface, d Diamond, caller string, caller_affiliation int) ([]byte, error) {
 	
 	bytes, err := json.Marshal(d)
 	
@@ -782,7 +764,7 @@ func (t *SimpleChaincode) get_diamond_details(stub *shim.ChaincodeStub, d Diamon
 //	 get__diamond_details
 //=================================================================================================================================
 
-func (t *SimpleChaincode) get_diamonds(stub *shim.ChaincodeStub, caller string, caller_affiliation int) ([]byte, error) {
+func (t *SimpleChaincode) get_diamonds(stub  shim.ChaincodeStubInterface, caller string, caller_affiliation int) ([]byte, error) {
 
 	bytes, err := stub.GetState("assetIDs")
 		
@@ -799,9 +781,9 @@ func (t *SimpleChaincode) get_diamonds(stub *shim.ChaincodeStub, caller string, 
 	var temp []byte
 	var d Diamond
 	
-	for _, unique := range assetIDs.assetID {
+	for _, unique := range assetIDs.assetsID {
 		
-		v, err = t.retrieve_unique(stub, unique)
+		d, err = t.retrieve_assets(stub, unique)
 		
 		if err != nil {return nil, errors.New("Failed to retrieve Unique")}
 		
