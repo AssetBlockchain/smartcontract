@@ -313,7 +313,7 @@ func (t *SimpleChaincode) Query(stub  shim.ChaincodeStubInterface, function stri
 	
 	
 			v, err := t.retrieve_assets(stub, args[0])
-																							if err != nil { fmt.Printf("QUERY: Error retrieving v5c: %s", err); return nil, errors.New("QUERY: Error retrieving v5c "+err.Error()) }
+																							if err != nil { fmt.Printf("QUERY: Error retrieving asset: %s", err); return nil, errors.New("QUERY: Error retrieving v5c "+err.Error()) }
 	
 			return t.get_diamond_details(stub, v, caller, caller_affiliation)
 			
